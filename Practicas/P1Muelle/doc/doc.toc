@@ -1,0 +1,14 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Introducción}{1}{section.1}%
+\contentsline {section}{\numberline {2}El Péndulo Elástico Bidimensional}{1}{section.2}%
+\contentsline {section}{\numberline {3}Integración Numérica}{2}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Euler Explícito}{2}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Euler Semi-Implícito}{3}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Runge-Kutta de Orden 2 (RK2)}{3}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Runge-Kutta de Orden 4 (RK4)}{3}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Heun}{4}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Resultados y Análisis}{5}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Análisis de Estabilidad}{5}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Análisis de Convergencia}{6}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Estudio de Zonas de Estabilidad}{7}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Conclusiones}{9}{section.5}%

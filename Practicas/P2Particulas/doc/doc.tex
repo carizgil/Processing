@@ -1,0 +1,330 @@
+\documentclass{article}
+
+% Language setting
+\usepackage[spanish]{babel}
+
+% Set page size and margins
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepgfplotslibrary{fillbetween}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{fourier}
+\usepackage{parskip}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{multicol}
+\usepackage{makeidx}
+\makeindex
+
+\setlength{\textfloatsep}{10pt} % Ajusta el espacio entre texto y figuras flotantes
+\definecolor{customcolor}{RGB}{150, 150, 150}
+
+
+\title{Sistemas de Partículas \\ \large{Práctica 2 - Curso 2023-24}}
+\author{Miguel Cuevas Escrig \and Carlos Izquierdo Gil}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Introducción}
+
+El propósito de esta práctica es implementar una simulación de una hoguera, haciendo uso de sistemas de partículas y el método de integración numérica Euler semi-implícito.
+
+La resolución de este problema implica la formulación de ecuaciones diferenciales que describan el movimiento de las partículas en el sistema, considerando fuerzas como la gravedad y la fricción con el aire. La implementación de estas ecuaciones en código permitirá visualizar la hoguera y el comportamiento del humo a lo largo del tiempo.
+
+Además, se explorarán situaciones que involucran la variación de parámetros como la cantidad de partículas generadas por unidad de tiempo ($n_t$) y el paso de simulación ($\Delta t$). Se realizarán análisis comparativos mediante gráficas para entender el comportamiento del sistema en sus situaciones límite.
+
+\section{Emisor de partículas: Hoguera con Humo}
+
+El sistema de partículas que simula una hoguera con humo se compone de un conjunto de partículas cuyo origen está en la parte inferior de la pantalla. Cada partícula tiene un tiempo de vida (\(l\)), una masa (\(m\)), y un radio (\(r\)). Inicialmente, el sistema de partículas no contiene ninguna partícula, pero en cada paso de simulación se añaden nuevas.
+
+Cada partícula está sujeta a la fuerza peso (\(F_w\)) causada por la gravedad (\(g\)) y se frena por la fricción con el aire (\(F_d\)), provocando que pierda energía. La magnitud de la fuerza de fricción (\(F_d\)) es proporcional al cuadrado de la velocidad de la partícula, con un factor de proporcionalidad denominado \(K_d\).
+
+Los parámetros del problema y sus unidades son los siguientes:
+\begin{itemize}
+    \item \(n_t\): número de partículas creadas por segundo (\(s^{-1}\)).
+    \item \(l\): tiempo de vida de cada partícula (s).
+    \item \(r\): radio de cada partícula (m).
+    \item \(m\): masa de cada partícula (kg).
+    \item \(g\): módulo del vector aceleración de la gravedad (\(m/s^2\)).
+    \item \(K_d\): constante de fricción con el aire (kg/m).
+\end{itemize}
+
+La simulación, utilizando el método de Euler semi-implícito, debe calcular en todo momento la aceleración (\(a\)), la velocidad (\(v\)), y la posición (\(s\)) de cada partícula. Además, se debe calcular el valor de la energía total del sistema (\(E\)).
+
+Utilizando la segunda ley de Newton, podemos expresar la relación entre la fuerza (\(\mathbf{F}\)), la masa (\(m\)), la aceleración (\(\mathbf{a}\)), la velocidad (\(\mathbf{v}\)), y la posición (\(\mathbf{s}\)) de la partícula:
+
+\noindent
+\textbf{Ecuaciones de Fuerza:}
+\begin{align*}
+    \sum\mathbf{F} & = m\mathbf{a}                                                    \\
+    \mathbf{a}     & = \frac{d\mathbf{v}}{dt} = \frac{\mathbf{F}_w + \mathbf{F}_d}{m} \\
+    \mathbf{v}     & = \frac{d\mathbf{s}}{dt}
+\end{align*}
+
+\noindent
+Donde:
+
+
+\begin{align*}
+    \mathbf{F}_w & = m \cdot g      \\
+    \mathbf{F}_d & = -K_d \cdot v^2
+\end{align*}
+
+\noindent
+\textbf{Ecuaciones de Energía:}
+\begin{align*}
+    E_k                  & = 0.5 \cdot m \cdot v^2 \\
+    E_g                  & = m \cdot g \cdot s_y   \\
+    \text{Energía Total} & = E_k + E_g
+\end{align*}
+
+\section{Implementación}
+
+La velocidad inicial de todas las partículas es la misma. Esto generaba patrones visuales muy poco orgánicos, haciendo que no pareciese humo. Para recuperar ese realismo, se han añadido fuerzas para introducir un poco de caos a la simulación y que parezca más realista. Estas fuerzas son viento y turbulencia. La magnitud y dirección de estas fuerzas son muy pequeñas, pero suficientes para romper esos patrones visuales. Estas fuerzas caóticas se han desactivado a la hora de la entrega, para permitir una simulación más estable y predecible.
+
+Se ha implementado de la siguiente forma, siguiendo las ecuaciones descritas anteriormente:
+
+\begin{lstlisting}[language=Java, frame=single]
+
+
+    PVector turbulence = new PVector(random(-0.001,0.001),0.0);
+    PVector wind = new PVector(-0.0003,-0.001);
+    // Fw = m*g
+    PVector g = new PVector(0.0,G);
+    PVector FPeso = PVector.mult(g,_m); 
+    
+    // Froz = -Kd * v(actual)
+    float vSquared = pow(_v.mag(),2);
+    PVector vNormalized = _v.copy();
+    vNormalized.normalize();
+    
+    PVector Froz = PVector.mult(PVector.mult(vNormalized,vSquared),-Kd);
+    //Se suman las fuerzas
+    
+    _F = PVector.add(Froz,FPeso);
+    //_F.add(turbulence);
+    _F.add(wind);
+
+\end{lstlisting}
+
+Las ecuaciones que se encargan de calcular la energía cinética, asociada al movimiento de las partículas,y la energía potencial gravitacional, relacionada con la altura y la gravedad, se implementa de la siguiente forma.
+
+\begin{lstlisting}[language=Java, frame=single]
+float _Ek = _m * pow(_v.mag(), 2) * 0.5;
+
+float _Eg = _m * G * _s.y;
+
+_energy = _Ek + _Eg;
+\end{lstlisting}
+
+\section{Resultados y Análisis}
+
+En esta sección se presentan los resultados de la simulación y se analiza el comportamiento del sistema cuando se le somete a diferentes condiciones.
+\subsection{Resultado de la Simulación}
+
+Para comprobar si la simulación funciona correctamente, se ha realizado una prueba con los siguientes parámetros:
+
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{cc}
+        Paso de simulación & 0.01s            \\
+        \textbf{$n_t$}     & 200 particulas/s \\
+        \textbf{G}         & 9.8 m/$s^2$      \\
+        \textbf{r}         & 0.03m            \\
+        \textbf{m}         & 0.01kg           \\
+        \textbf{$K_d$}     & 0.0001 kg/s      \\
+    \end{tabular}
+    \caption{Parametros de la simulación.}
+    \label{tab:parametros_1}
+\end{table}
+
+\subsubsection{Se alcanza el equilibrio}
+
+En este caso, el resultado es el esperado. Se observa que con 200 particulas por segundo, y un tiempo de vida de 5 segundos, el sistema se estabiliza en torno a las 1000 particulas. Lo mismo se aplica a los otros valores de tiempo de vida.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={t (s)},
+                    ylabel={n (Particulas)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none,blue] table [x=t, y=n, col sep=comma] {data/GRAFICA1_L5.csv};
+                \addlegendentry{TTL = 5s}
+
+                \addplot [mark=none,green] table [x=t, y=n, col sep=comma] {data/GRAFICA1_L1.csv};
+                \addlegendentry{TTL = 1s}
+
+                \addplot [mark=none,red] table [x=t, y=n, col sep=comma] {data/GRAFICA1_L05.csv};
+                \addlegendentry{TTL = 0.5s}
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Se alcanza el equilibrio}
+        \label{fig:energy_vs_time_1A}
+    \end{subfigure}
+\end{figure}
+
+\subsubsection{No se alcanza el equilibrio}
+
+En este caso, el resultado no es el esperado. Se observa que con 150 partículas por segundo, el sistema tiene el mismo punto de equilibrio que con 200 partículas. Esto se debe a la forma en que calculamos las partículas que se emiten por segundo. El valor de $N_t$ es de tipo float. Para calcular las partículas que se emiten por segundo, se calcula el valor entero de $N_t \cdot dt$. Esto hace que el valor mínimo de partículas que se emiten por segundo sea 1. Usando este método, ambos parámetros controlan por igual el número de particulas que se emiten por segundo.
+
+Se puede observar que para pasos de simulación menores de 0.01s, el sistema emite 1 particula por frame, lo que dispara el número de particulas generadas.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={t (s)},
+                    ylabel={n (Particulas)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                    xmax=2,
+                    ymax=1000,
+                ]
+                \addplot [mark=none,green] table [x=t, y=n, col sep=comma] {data/GRAFICA2_L05_T01.csv};
+                \addlegendentry{ dt = 0.1s}
+                \addplot [mark=none,blue] table [x=t, y=n, col sep=comma] {data/GRAFICA2_L05_T0001.csv};
+                \addlegendentry{ dt = 0.001s}
+                \addplot [dashed,red] table [x=t, y=n, col sep=comma] {data/GRAFICA1_L05.csv};
+                \addlegendentry{dt = 0.01s}
+
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Partículas / Tiempo - TTL = 0.5s}
+        \label{fig:energy_vs_time_1A}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={t (s)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                    xmax=2,
+                    ymax=1000,
+                ]
+
+                \addplot [mark=none,green] table [x=t, y=n, col sep=comma] {data/GRAFICA2_L1_T01.csv};
+                \addlegendentry{ dt = 0.1s}
+
+                \addplot [dashed,red] table [x=t, y=n, col sep=comma] {data/GRAFICA1_L1.csv};
+                \addlegendentry{dt = 0.01s}
+
+                \addplot [mark=none,blue] table [x=t, y=n, col sep=comma] {data/GRAFICA2_L1_T0001.csv};
+                \addlegendentry{ dt = 0.001s}
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Partículas / Tiempo - TTL = 1s}
+        \label{fig:energy_vs_time_1_B}
+    \end{subfigure}
+
+    \label{fig:combined_energy_vs_time_1}
+\end{figure}
+\subsection{Tiempo de cáculo de fisicas}
+En esta gráfica \ref{fig:coste} vemos cómo varía el tiempo de cálculo real de cada paso de simulación en función de cuántas partículas hay.
+
+Se puede observar que el tiempo de cálculo aumenta de forma lineal $O(n)$. Esto es debido a que el tiempo de cálculo de cada partícula es constante, y el número de partículas es el único factor que influye en el tiempo de cálculo. Si hubiesen interacciones entre partículas, el tiempo de cálculo aumentaría exponencialmente $O(n^2)$.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{cc}
+        Paso de simulación & 0.01s               \\
+        \textbf{$n_t$}     & 100000 particulas/s \\
+        \textbf{G}         & 9.8 m/$s^2$         \\
+        \textbf{r}         & 0.2m                \\
+        \textbf{m}         & 0.0001kg            \\
+        \textbf{$K_d$}     & 0.0001 kg/s         \\
+    \end{tabular}
+    \caption{Parametros de la simulación.}
+    \label{tab:parametros_1}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={t (ms)},
+                    ylabel={n (Particulas)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+                \addplot [mark=none,color=customcolor] table [x=m, y=n, col sep=comma] {data/GRAFICA3.csv};
+                \addlegendentry{Datos en crudo}
+                \addplot [mark=none,red] table [x=m, y=n, col sep=comma] {data/GRAFICA3_P.csv};
+                \addlegendentry{Valor máximo}
+                \addplot [mark=none,blue] table [x=m, y=n, col sep=comma] {data/GRAFICA3_P2.csv};
+                \addlegendentry{Valor promedio}
+                \addplot[yellow] coordinates {(0,0) (105,2000000)};
+                \addlegendentry{Tendencia}
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Partículas / Tiempo en procesar físicas}
+        \label{fig:coste}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={n (Particulas)},
+                    ylabel={t (ms)},
+                    legend style={at={(0.5,-0.43)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none,blue] table [x=n, y=variacion_absoluta, col sep=comma] {data/GRAFICA3_P2.csv};
+                \addlegendentry{Desviación del tiempo de cálculo}
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Partículas / Tiempo máximo de cálculo}
+        \label{fig:deviation}
+    \end{subfigure}
+\end{figure}
+
+En la figura \ref{fig:deviation}, se observa que la diferencia entre el tiempo máximo y mínimo de cálculo para cada número de partículas también aumenta. Es decir, no solo aumenta el tiempo de cálculo, sino que también aumenta la inconsistencia en el tiempo de cálculo.
+
+\section{Conclusiones}
+
+El sistema de partículas implementado es capaz de simular una hoguera con humo de forma realista. Se ha comprobado que el sistema alcanza un equilibrio segun los parámetros que se le pasen. Se ha comprobado que el tiempo de cálculo aumenta de forma lineal con el número de partículas, y que la diferencia entre el tiempo máximo y mínimo de cálculo también aumenta.
+
+\end{document}

@@ -1,0 +1,594 @@
+\documentclass{article}
+
+% Language setting
+\usepackage[spanish]{babel}
+
+% Set page size and margins
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepgfplotslibrary{fillbetween}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{fourier}
+\usepackage{parskip}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{multicol}
+\usepackage{makeidx}
+\makeindex
+
+\setlength{\textfloatsep}{10pt} % Ajusta el espacio entre texto y figuras flotantes
+
+
+\title{Métodos de Integración Numérica en Simulación \\ \large{Práctica 1 - Curso 2023-24}}
+\author{Miguel Cuevas Escrig \and Carlos Izquierdo Gil}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Introducción}
+
+El objetivo principal de la práctica es emplear métodos de integración numérica, como Euler explícito, Euler semi-implícito, Runge-Kutta de orden 2 (RK2), Runge-Kutta de orden 4 (RK4), y Heun, para simular y analizar el comportamiento del sistema. Además, se explorará la estabilidad y convergencia de estos métodos evaluando su desempeño bajo diferentes condiciones.
+
+La resolución del problema incluirá la formulación de ecuaciones diferenciales que describan el movimiento de la partícula y su implementación en código. Se explorarán situaciones tanto sin fricción como con fricción, generando gráficas comparativas para analizar la estabilidad y convergencia de los métodos de integración utilizados.
+
+Esta introducción sienta las bases para la comprensión y ejecución de la práctica, abordando la simulación de un fenómeno físico complejo mediante herramientas computacionales y técnicas numéricas avanzadas.
+
+\section{El Péndulo Elástico Bidimensional}
+
+El péndulo elástico bidimensional es un sistema compuesto por una masa $m$ suspendida de un resorte de constante $K_e$ y longitud natural $l_0$, que se encuentra sujeto a un punto fijo $C$. La masa se ve afectada por tres fuerzas: la fuerza elástica $\mathbf{F}_e$, la fuerza gravitatoria $\mathbf{F}_w$, y la fuerza de fricción $\mathbf{F}_d$ descritas por las siguientes ecuaciones:
+\begin{align*}
+    \mathbf{F}_e & = -K_e (\|\mathbf{s}\| - l_0) \frac{\mathbf{s}}{\|\mathbf{s}\|} \\
+    \mathbf{F}_w & = m\mathbf{g}                                                   \\
+    \mathbf{F}_d & = -K_d\mathbf{v}
+\end{align*}
+
+El sistema se describe mediante la ecuacion diferencial que rige el movimiento de la masa $m$ en el espacio según la segunda ley de \textit{Newton}.
+
+\begin{align*}
+    \sum\mathbf{F} & = m\mathbf{a}                                                                   \\
+    \mathbf{a}     & = \frac{d\mathbf{v}}{dt} = \frac{\mathbf{F}_e + \mathbf{F}_w + \mathbf{F}_d}{m} \\
+    \mathbf{v}     & = \frac{d\mathbf{s}}{dt}                                                        \\
+\end{align*}
+
+Siquiendo la ecuación de la aceleración, el código se puede implementar de la siguiente manera:
+
+\begin{lstlisting}[language = Java, frame = single]
+    _Fe = _sp.getForce(); 
+    _Fw = PVector.mult(Gvector, M); //Fw = m*g
+    _Fd = PVector.mult(v, -Kd); //Fd = -Kd*v
+   
+   
+    _Fres = PVector.add(_Fe, _Fw);
+    _Fres.add(_Fd);
+    a = PVector.div(_Fres, M);
+\end{lstlisting}
+
+Para poder dibujar la partícula, se necesita encontrar un s(t) que describa la posición de la partícula en el espacio. Para ello, se debe integrar velocidad y la aceleración.
+\begin{align*}
+    v(t) = \int a(t) \, dt \\
+    s(t) = \int v(t) \, dt
+\end{align*}
+
+\section{Integración Numérica}
+
+La integración numérica es una técnica que permite aproximar el valor de una integral definida mediante la evaluación de una serie de puntos discretos. La precisión de la aproximación depende del método de integración utilizado y del tamaño del paso de integración. En esta práctica se van a utilizar los siguientes métodos de integración: Euler explícito, Euler semi-implícito, Runge-Kutta de orden 2 (RK2), Runge-Kutta de orden 4 (RK4) y Heun.
+
+\subsection{Euler Explícito}
+
+El método de Euler explícito es un método de integración numérica que aproxima la solución mediante la evaluación de la derivada en un punto inicial. La aproximación de la solución en el siguiente paso de integración se obtiene mediante la suma de la derivada evaluada en el punto inicial multiplicada por el paso de integración.
+
+\begin{align*}
+    \mathbf{v}_{n+1} & = \mathbf{v}_n + \mathbf{a}_n \Delta t \\
+    \mathbf{s}_{n+1} & = \mathbf{s}_n + \mathbf{v}_n \Delta t
+\end{align*}
+
+Implementación:
+\begin{lstlisting}[language = Java, frame = single]
+    _a = calculateAcceleration(_s, _v);
+    _s.add(PVector.mult(_v, _timeStep));
+    _v.add(PVector.mult(_a, _timeStep));
+\end{lstlisting}
+
+\subsection{Euler Semi-Implícito}
+
+El método de Euler semi-implícito es similar al método de Euler explícito, pero en este caso la aproximación de la solución en el siguiente paso de integración se obtiene mediante la suma de la derivada evaluada en el punto final multiplicada por el paso de integración.
+
+\begin{align*}
+    \mathbf{v}_{n+1} & = \mathbf{v}_n + \mathbf{a}_{n} \Delta t   \\
+    \mathbf{s}_{n+1} & = \mathbf{s}_n + \mathbf{v}_{n+1} \Delta t
+\end{align*}
+
+Implementación:
+\begin{lstlisting}[language = Java, frame = single]
+    _a = calculateAcceleration(_s, _v);
+    _v.add(PVector.mult(_a, _timeStep));
+    _s.add(PVector.mult(_v, _timeStep));
+\end{lstlisting}
+
+\subsection{Runge-Kutta de Orden 2 (RK2)}
+
+El método de Runge-Kutta de orden 2 (RK2) es un método de integración numérica que aproxima la solución mediante la evaluación de la derivada en un punto intermedio. La aproximación de la solución en el siguiente paso de integración, se obtiene mediante la suma de la derivada evaluada en el punto intermedio multiplicada por el paso de integración.
+
+\begin{align*}
+    \mathbf{v}_{n+1} & = \mathbf{v}_n + \mathbf{a}_{n/2} \Delta t \\
+    \mathbf{s}_{n+1} & = \mathbf{s}_n + \mathbf{v}_{n/2} \Delta t
+\end{align*}
+
+Implementación:
+
+\begin{lstlisting}[language = Java, frame = single]
+    _a = calculateAcceleration(_s,_v);
+    PVector k1v = PVector.mult(_a, _timeStep); 
+    PVector k1s = PVector.mult(_v, _timeStep); 
+
+    PVector sMedios = PVector.add(_s, PVector.mult(k1s, 0.5)); 
+    PVector vMedios = PVector.add(_v, PVector.mult(k1v, 0.5));  
+    PVector aMedios = calculateAcceleration (sMedios,vMedios);
+    
+    PVector k2v = PVector.mult(aMedios, _timeStep);
+    PVector k2s = PVector.mult(vMedios, _timeStep); 
+    
+    _v.add(k2v);
+    _s.add(k2s); 
+
+\end{lstlisting}
+
+\subsection{Runge-Kutta de Orden 4 (RK4)}
+
+El método de Runge-Kutta de orden 4 (RK4) es un método de integración numérica que aproxima la solución mediante la evaluación de la derivada en cuatro puntos intermedios. La aproximación de la solución en el siguiente paso de integración se obtiene mediante la suma de las derivadas evaluadas en los puntos intermedios multiplicadas por el paso de integración.
+
+\begin{align*}
+    \mathbf{v}_{n+1} & = \mathbf{v}_n + \frac{1}{6} (\mathbf{k}_1 + 2\mathbf{k}_2 + 2\mathbf{k}_3 + \mathbf{k}_4) \Delta t \\
+    \mathbf{s}_{n+1} & = \mathbf{s}_n + \frac{1}{6} (\mathbf{l}_1 + 2\mathbf{l}_2 + 2\mathbf{l}_3 + \mathbf{l}_4) \Delta t
+\end{align*}
+
+Implementación:
+
+\begin{lstlisting}[language = Java, frame = single]
+    _a = calculateAcceleration(_s,_v);
+    PVector k1v = PVector.mult(_a, _timeStep); 
+    PVector k1s = PVector.mult(_v, _timeStep);
+  
+    PVector s2 = PVector.add(_s, PVector.mult(k1s, 0.5));
+    PVector v2 = PVector.add(_v, PVector.mult(k1v, 0.5));
+    PVector a2 = calculateAcceleration (s2,v2);
+  
+    PVector k2v = PVector.mult(a2, _timeStep);
+    PVector k2s = PVector.mult(v2, _timeStep);
+  
+    PVector s3 = PVector.add(_s, PVector.mult(k2s, 0.5));
+    PVector v3 = PVector.add(_v, PVector.mult(k2v, 0.5));  
+    PVector a3 = calculateAcceleration (s3,v3);
+  
+    PVector k3v = PVector.mult(a3, _timeStep);
+    PVector k3s = PVector.mult(v3, _timeStep);
+  
+    PVector s4 = PVector.add(_s, k3s);
+    PVector v4 = PVector.add(_v, k3v);  
+    PVector a4 = calculateAcceleration (s4,v4);
+  
+    PVector k4v = PVector.mult(a4, _timeStep);
+    PVector k4s = PVector.mult(v4, _timeStep);
+\end{lstlisting}
+
+\subsection{Heun}
+
+El método de Heun es un método de integración numérica que aproxima la solución mediante la evaluación de la derivada en dos puntos intermedios. La aproximación de la solución en el siguiente paso de integración se obtiene mediante la suma de las derivadas evaluadas en los extremos.
+
+\begin{align*}
+    \mathbf{v}_{n+1} & = \mathbf{v}_n + \frac{1}{2} (\mathbf{a}_n + \mathbf{a}_{n+1}) \Delta t \\
+    \mathbf{s}_{n+1} & = \mathbf{s}_n + \frac{1}{2} (\mathbf{v}_n + \mathbf{v}_{n+1}) \Delta t
+\end{align*}
+
+Implementación:
+
+\begin{lstlisting}[language = Java, frame = single]
+    _a = calculateAcceleration(_s,_v); 
+    PVector s2 = PVector.add(_s, PVector.mult(_v, _timeStep)); 
+    PVector v2 = PVector.add(_v, PVector.mult(_a, _timeStep)); 
+    PVector a2 = calculateAcceleration(s2, v2); 
+
+    PVector vheun = PVector.mult(PVector.add(_v, v2), 0.5); 
+    _s.add(PVector.mult(vheun, _timeStep)); 
+
+    PVector aheun = PVector.mult(PVector.add(_a, a2), 0.5); 
+    _v.add(PVector.mult(aheun, _timeStep)); 
+
+\end{lstlisting}
+
+\section{Resultados y Análisis}
+
+En esta sección se presentarán los resultados obtenidos y se analizarán los métodos de integración utilizados. Se incluirán gráficas comparativas y se evaluará la estabilidad y convergencia de los métodos de integración.
+
+\subsection{Análisis de Estabilidad}
+
+Para poder llevar a cabo el análisis de estabilidad, se ha fijado la constante de fricción a 0. En el caso ideal, el sistema no debe ganar ni perder energía. Por lo tanto, se espera que la energía del sistema se mantenga constante a lo largo del tiempo.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{cc}
+        Paso de simulación & 0.004s      \\
+        \textbf{G}         & 9.8 m/$s^2$ \\
+        \textbf{D}         & 200m        \\
+        \textbf{M}         & 2kg         \\
+        \textbf{$K_e$}     & 10000 N/m   \\
+        \textbf{$l0$}      & 50m         \\
+        \textbf{$K_d$}     & 0 kg/s      \\
+    \end{tabular}
+    \caption{Parametros de la simulación.}
+    \label{tab:parametros_1}
+\end{table}
+
+En la gráfica de energía frente a tiempo \ref{fig:energy_vs_time_1A} se muestra la energía del sistema en función del tiempo para cada método de integración. Se puede observar que la energía del sistema no se mantiene constante a lo largo del tiempo para todos los métodos de integración.
+
+En el caso del método de Euler explícito, la energía del sistema aumenta muy rápidamente, por eso vamos a considerar que este es el método más inestable. Esto se debe a que se muestrea únicamente la derivada al principio del intervalo, y para cambios bruscos en la derivada, el integrador no es capaz de seguir el cambio.
+
+En el caso del método de Euler semi-implícito, y de Runge-Kutta de orden 4, la energía del sistema permanece constante. Por lo tanto, utilizando estos parametros en concreto, podemos considerar que estos son los métodos más estables. En el caso de Euler semi-implícito, se evalua la derivada al final del intervalo, por lo que este método es capaz de soportar cambios bruscos en la derivada. Respecto a Runge-Kutta de orden 4, al evaluar una derivada en cada extremo, dos intermedias y promediarlas, es el método que más capaz es de seguir cambios bruscos en la aceleración.
+
+En el caso del método de Runge-Kutta de orden 2, la energía permanece estable durante 4.3s, pero despues empieza a aumentar. Una vez se desestabiliza, la energía del sistema aumenta muy rápidamente. Este método es similar a Runge-Kutta de orden 4, pero con menos evaluaciones de la derivada y por tanto menos precision.
+
+En la gráfica de energía frente a tiempo \ref{fig:energy_vs_time_1_B} se muestra la energía del sistema en función del tiempo para el método de Euler semi-implícito y Runge-Kutta de orden 4 más de cerca. Se puede observar que la energía del sistema permanece constante para ambos métodos de integración pero la energía en Runge-Kutta de orden 4 oscila entorno a unos valores más pequeños que en el caso de Euler semi-implícito. Por esto podemos afirmar que Runge-Kutta de orden 4 es el método más estable.
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={t (s)},
+                    ylabel={E (J)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    xmax=12,
+                    ymax=1e10,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none,red] table [x=t, y=E, col sep=comma] {data/Grafica1_eulerExplicito.csv};
+                \addlegendentry{Euler explícito}
+
+                \addplot[mark=none,green] table [x=t, y=E, col sep=comma] {data/Grafica1_eulerSimpleptico.csv};
+                \addlegendentry{Euler semi-implícito}
+
+                \addplot[mark=none,orange] table [x=t, y=E, col sep=comma] {data/Grafica1_RKII.csv};
+                \addlegendentry{RK2}
+
+                \addplot [mark=none,blue]table [x=t, y=E, col sep=comma] {data/Grafica1_RKIV.csv};
+                \addlegendentry{RK4}
+
+                \addplot [mark=none,violet]table [x=t, y=E, col sep=comma] {data/Grafica1_Heun.csv};
+                \addlegendentry{Heun}
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Energía / Tiempo - General}
+        \label{fig:energy_vs_time_1A}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 2 TikZ code
+            \begin{axis}[
+                    xlabel={t (s)},
+                    ylabel={E (J)},
+                    legend style={at={(0.5,-0.425)}, anchor=north},
+                    grid=major,
+                    xmax=6,
+                    ymax=2.5e8,
+                    ymin=0.5e8,
+                ]
+
+                \addplot[mark=none,red, name path=A] table [x=t, y=E, col sep=comma] {data/Grafica2_EulerSimpleptico.csv};
+                \addlegendentry{Euler semi-implícito}
+
+                \addplot [mark=none,blue, name path=B] table [x=t, y=E, col sep=comma] {data/Grafica2_RKIV.csv};
+                \addlegendentry{RK4}
+
+                \addplot[red!20] fill between[of=A and B];
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Energía / Tiempo - RK4 y Euler Simp}
+        \label{fig:energy_vs_time_1_B}
+    \end{subfigure}
+
+    \label{fig:combined_energy_vs_time_1}
+\end{figure}
+
+
+
+
+%\end{comment}
+
+\subsection{Análisis de Convergencia}
+
+Para poder llevar a cabo el análisis de convergencia, se han fijado las variables tal como se indica en la tabla \ref{tab:parametros_2}. Al haber añadido fricción, el sistema debería perder energía a lo largo del tiempo. Por lo tanto, se espera que la energía del sistema disminuya.
+
+En la gráfica de energía frente a tiempo \ref{fig:energy_vs_time_2A} se muestra la energía del sistema en función del tiempo de todos los métodos de integración implementados. Se puede observar que todos los métodos menos el de Euler Simplectico se comportan de una manera similar.
+
+El método de Euler Explícito es el que peor se comporta, ya que al basarse únicamente en la derivada al principio del intervalo, su precision es muy baja. En cuanto a los demás, todos tardan lo mismo en encontrar el equilibrio de fuerzas, aunque Heun es el que más rápidamente pierde energía. Lo contrario pasa con Runge-Kutta de orden 2, que es el que más lentamente la pierde. Runge-Kutta de orden 4 y Euler semi-implícito están entre medias de RK2 y Heun.
+\begin{table}[ht]
+    \centering
+    \begin{tabular}{cc}
+        Paso de simulación & 0.005s      \\
+        \textbf{G}         & 9.8 m/$s^2$ \\
+        \textbf{D}         & 200 m       \\
+        \textbf{M}         & 5 kg        \\
+        \textbf{$K_e$}     & 10000 N/m   \\
+        \textbf{$l0$}      & 50 m        \\
+        \textbf{$K_d$}     & 40 kg/s     \\
+    \end{tabular}
+    \caption{Parametros de la simulación.}
+    \label{tab:parametros_2}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                xlabel={t (s)},
+                ylabel={E (J)},
+                legend style={at={(0.5,-0.2)}, anchor=north},
+                grid=major,
+                xmax=3,
+                ymax=3e8,
+            ]
+
+            \addplot [mark=none,red] table [x=t, y=E, col sep=comma] {data/Grafica3_eulerExplicito.csv};
+            \addlegendentry{Euler explícito}
+
+            % Add more \addplot commands for additional data series if needed
+            \addplot[mark=none,green] table [x=t, y=E, col sep=comma] {data/Grafica3_eulerSimpleptico.csv};
+            \addlegendentry{Euler semi-implícito}
+
+            \addplot[mark=none,orange] table [x=t, y=E, col sep=comma] {data/Grafica3_RKII.csv};
+            \addlegendentry{RK2}
+
+            \addplot [mark=none,blue]table [x=t, y=E, col sep=comma] {data/Grafica3_RKIV.csv};
+            \addlegendentry{RK4}
+
+            \addplot [mark=none,violet]table [x=t, y=E, col sep=comma] {data/Grafica3_Heun.csv};
+            \addlegendentry{Heun}
+        \end{axis}
+        \end{tikzpicture}
+        \caption{Energía / Tiempo - Con Friccion}
+        \label{fig:energy_vs_time_2A}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 2 TikZ code
+            \begin{axis}[
+                xlabel={t (s)},
+                ylabel={E (J)},
+                legend style={at={(0.5,-0.28)}, anchor=north},
+                grid=major,
+                xmax=0.6,
+                ymax=1.5e8,
+            ]
+
+
+            % Add more \addplot commands for additional data series if needed
+            \addlegendentry{Euler semi-implícito}
+            \addplot[mark=none,green] table [x=t, y=E, col sep=comma] {data/Grafica4_eulerSimpleptico.csv};
+
+            \addplot[mark=none,orange] table [x=t, y=E, col sep=comma] {data/Grafica4_RKII.csv};
+            \addlegendentry{RK2}
+
+            \addplot [mark=none,blue]table [x=t, y=E, col sep=comma] {data/Grafica4_RKIV.csv};
+            \addlegendentry{RK4}
+
+            \addplot [mark=none,violet]table [x=t, y=E, col sep=comma] {data/Grafica4_Heun.csv};
+            \addlegendentry{Heun}
+
+            \fill[red, fill opacity=0.3] (axis cs:1,0) rectangle (axis cs:2,10);
+
+        \end{axis}
+        \end{tikzpicture}
+        \caption{Energía / Tiempo - Con Friccion: Detalle}
+        \label{fig:energy_vs_time_euler_2B}
+    \end{subfigure}
+
+    \label{fig:combined_energy_vs_time_2}
+\end{figure}
+
+\subsection{Estudio de Zonas de Estabilidad}
+
+Para poder llevar a cabo el estudio de zonas de estabilidad, se ha fijado las variables tal como se indica en la tabla \ref{tab:parametros_1}. Se ha variado el paso de simulación en incrementos de 10\% para poder observar como afecta a la estabilidad de los métodos de integración. 
+
+En la gráfica de Euler Explícito \ref{fig:energy_vs_time_step_euler_explicito}, se puede observar que la energía del sistema permanece estable hasta que el paso de simulación es 1.5e-3s o 0.0015s. A partir de este punto, la energía del sistema disminuye lentamente. 
+
+En la gráfica de Heun \ref{fig:energy_vs_time_step_heun}, se puede observar que la energía del sistema permanece estable hasta que el paso de simulación es 2.4e-3s o 0.0045s. A partir de este punto, la energía del sistema aumenta considerablemente.
+
+En la gráfica de Euler semi-implícito \ref{fig:energy_vs_timestep_euler_semi_implicito}, parece que el paso en el que se pierde la estabilidad ronda los 2e-3s o 0.002s. A partir de este valor, el sistema va ganando energía lentamente.
+
+En la gráfica de Runge-Kutta de orden 2 \ref{fig:energy_vs_times_step_RKII}, se puede observar que la energía del sistema permanece estable hasta que el paso de simulación es 1.5e-3s o 0.0015s. A partir de este punto, la energía del sistema aumenta rápidamente.
+
+En la gráfica de Runge-Kutta de orden 4 \ref{fig:energy_vs_times_step_RKII}, se puede observar que la energía del sistema permanece estable hasta que el paso de simulación es 2,2e-3s o 0.0022s. A partir de este punto, la energía varía sin ninguna tendencia clara y no es estable.
+
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                xlabel={Time step (s)},
+                ylabel={E (J)},
+                legend style={at={(0.5,-0.2)}, anchor=north},
+                grid=major,
+                xmin=1e-3,
+                xmax=3e-3,
+                ymax=8e8,
+                ymin=1e8,
+            ]
+
+            % Add more \addplot commands for additional data series if needed
+            \addlegendentry{Euler Explicito}
+            \addplot[mark=none,violet] table [x=ts, y=E, col sep=comma] {data/Grafica5_EulerExplicito.csv};
+
+            \addplot[domain=0:4e-3, samples=100, color=red] {2e8};
+
+            \fill[green, fill opacity=0.2] (axis cs:1e-3, 1e8) rectangle (axis cs:1.5e-3, 2e8);
+
+            \addlegendimage{line legend,red,sharp plot}
+            \addlegendentry{E(s) = $2 \times 10^8$}
+
+            
+
+        \end{axis}
+
+        \end{tikzpicture}
+        \caption{Energía vs. Timestep - Euler Explicito}
+        \label{fig:energy_vs_time_step_euler_explicito}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 2 TikZ code
+            \begin{axis}[
+                xlabel={Time step (s)},
+                ylabel={E (J)},
+                legend style={at={(0.5,-0.2)}, anchor=north},
+                grid=major,
+                xmax=4e-3,
+                xmin=1e-3,
+                ymax=8e8,
+                ymin=1e8,
+            ]
+
+            % Add more \addplot commands for additional data series if needed
+            \addlegendentry{Heun}
+            \addplot[mark=none,violet] table [x=ts, y=E, col sep=comma] {data/Grafica5_Heun.csv};
+
+            \addplot[domain=0:4e-3, samples=100, color=red] {2e8};
+            \fill[green, fill opacity=0.2] (axis cs:1e-3, 1e8) rectangle (axis cs:2.5e-3, 2e8);
+            \addlegendimage{line legend,red,sharp plot}
+            \addlegendentry{E(s) = $2 \times 10^8$}
+
+        \end{axis}
+        \end{tikzpicture}
+        \caption{Energía vs. Timestep - Heun}
+        \label{fig:energy_vs_time_step_heun}
+    \end{subfigure}
+
+    \label{fig:combined_energy_vs_timestep_1}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                xlabel={Time step (s)},
+                ylabel={E (J)},
+                legend style={at={(0.5,-0.2)}, anchor=north},
+                grid=major,
+                xmax=9e-3,
+                xmin=1e-3,
+                ymax=8e8,
+                ymin=1e8,
+            ]
+
+            % Add more \addplot commands for additional data series if needed
+            \addlegendentry{Euler semi-implícito}
+            \addplot[mark=none,violet] table [x=ts, y=E, col sep=comma] {data/Grafica5_EulerSimpleptico.csv};
+            \addplot[domain=0:9e-3, samples=100, color=red] {2e8};
+            \fill[green, fill opacity=0.2] (axis cs:1e-3, 1e8) rectangle (axis cs:2e-3, 2e8);
+            \addlegendimage{line legend,red,sharp plot}
+            \addlegendentry{E(s) = $2 \times 10^8$}
+
+        \end{axis}
+
+        \end{tikzpicture}
+        \caption{Energía vs. Timestep - Euler semi-implícito}
+        \label{fig:energy_vs_timestep_euler_semi_implicito}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 2 TikZ code
+            \begin{axis}[
+                xlabel={Time step (s)},
+                ylabel={E (J)},
+                legend style={at={(0.5,-0.2)}, anchor=north},
+                grid=major,
+                xmax=3e-3,
+                xmin=1e-3,
+                ymax=8e8,
+                ymin=1e8,
+            ]
+
+            % Add more \addplot commands for additional data series if needed
+            \addlegendentry{Runge-Kutta de orden 2}
+            \addplot[mark=none,violet] table [x=ts, y=E, col sep=comma] {data/Grafica5_RKII.csv};
+
+            \addplot[domain=0:3e-3, samples=100, color=red] {2e8};
+            \fill[green, fill opacity=0.2] (axis cs:1e-3, 1e8) rectangle (axis cs:1.5e-3, 2e8);
+            \addlegendimage{line legend,red,sharp plot}
+            \addlegendentry{E(s) = $2 \times 10^8$}
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Energía vs. Timestep - Runge-Kutta de orden 2}
+        \label{fig:energy_vs_times_step_RKII}
+    \end{subfigure}
+
+    \label{fig:combined_energy_vs_timestep_2}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                xlabel={Time step (s)},
+                ylabel={E (J)},
+                legend style={at={(1.4,0.5)}, anchor=north},
+                grid=major,
+                xmax=4e-3,
+                xmin=1e-3,
+                ymax=8e8,
+                ymin=1e8,
+            ]
+            
+            % Add more \addplot commands for additional data series if needed
+            \addlegendentry{Runge-Kutta de orden 4}
+            \addplot[mark=none,violet] table [x=ts, y=E, col sep=comma] {data/Grafica5_RKIV.csv};
+            
+            \addplot[domain=0:4e-3, samples=100, color=red] {2e8};
+            \fill[green, fill opacity=0.2] (axis cs:1e-3, 1e8) rectangle (axis cs:2.2e-3, 2e8);
+            \addlegendimage{line legend,red,sharp plot}
+            \addlegendentry{E(s) = $2 \times 10^8$}
+            
+            \end{axis}
+
+        \end{tikzpicture}
+        \caption{Energía vs. Timestep - Runge-Kutta de orden 4}
+        \label{fig:energy_vs_timestep_RKIV}
+    \end{subfigure}
+\label{fig:combined_energy_vs_timestep_3}
+\end{figure}
+
+\section{Conclusiones}
+
+Como se puede observar, cada algoritmo de integración tiene su comportamiento especifico y dependerá de las condiciones iniciales y de los parámetros del sistema. Cada algoritmo tiene un balance etre coste computacional, precisión y estabilidad, y en el caso de la simulación del péndulo elástico, el método de Runge-Kutta de orden 4 es el más estable y el que más rapido converge a la solución. Por otro lado, el método de Euler explícito es el menos indicado para este sistema.
+
+\end{document}

@@ -1,0 +1,10 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Introducción}{1}{section.1}%
+\contentsline {section}{\numberline {2}Emisor de partículas: Hoguera con Humo}{1}{section.2}%
+\contentsline {section}{\numberline {3}Implementación}{2}{section.3}%
+\contentsline {section}{\numberline {4}Resultados y Análisis}{3}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Resultado de la Simulación}{3}{subsection.4.1}%
+\contentsline {subsubsection}{\numberline {4.1.1}Se alcanza el equilibrio}{3}{subsubsection.4.1.1}%
+\contentsline {subsubsection}{\numberline {4.1.2}No se alcanza el equilibrio}{4}{subsubsection.4.1.2}%
+\contentsline {subsection}{\numberline {4.2}Tiempo de cáculo de fisicas}{5}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Conclusiones}{5}{section.5}%

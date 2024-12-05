@@ -1,0 +1,707 @@
+\documentclass{article}
+
+% Language setting
+\usepackage[spanish]{babel}
+
+% Set page size and margins
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepgfplotslibrary{fillbetween}
+\usepackage[colorlinks=true, allcolors=customcolor]{hyperref}
+\usepackage{fourier}
+\usepackage{parskip}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{multicol}
+\usepackage{makeidx}
+\usepackage{booktabs}
+
+\makeindex
+
+\setlength{\textfloatsep}{10pt} % Ajusta el espacio entre texto y figuras flotantes
+\definecolor{customcolor}{RGB}{69, 97, 140}
+\definecolor{color1}{RGB}{3,103,166}
+\definecolor{color2}{RGB}{79,115,2} 
+\definecolor{color3}{RGB}{242,183,5} 
+\definecolor{color4}{RGB}{166,41,13} 
+\definecolor{color5}{RGB}{242,116,5} 
+
+
+\title{Gestión Eficiente de Interacciones entre Partículas \\ \large{Práctica 3 - Curso 2023-24}}
+\author{Miguel Cuevas Escrig \and Carlos Izquierdo Gil}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Introducción}
+
+El propósito de esta práctica es implementar dos problemas. En ambos se trata de simular un sistema de partículas en los que hay múltiples interacciones entre las mismas. En el primero, no se realizará una gestión eficiente de las interacciones mientras que, en el segundo, sí.
+
+Se presentará la implementación de los problemas, se analizarán los resultados obtenidos y se compararán los tiempos de cálculo de las colisiones entre partículas en función del número de partículas y de la estructura de datos utilizada.
+
+
+\section{Implementación}
+
+En este apartado se describen las implementaciones realizadas para poder resolver los problemas planteados. Se han implementado dos modelos de colisiones entre partículas , un modelo de colisión de la partícula con un plano y dos estructuras de datos para la gestión eficiente de las interacciones entre partículas.
+\subsection{Partícula-Plano}\label{sec:particula-plano}
+
+Para detectar si una partícula colisiona con un plano, se debe comprobar si la distancia entre la partícula y el plano es menor que el radio de la misma. Para ello se comprueba el resultado que origina la proyección del vector que va desde el extremo del plano al centro de la partícula con la normal del plano, obteniendo un escalar. Una vez se conoce la distancia, se restituye la partícula en la dirección de la normal del plano y se procede a actualizar las velocidades de salida de la partícula completando así el proceso.
+
+El código de la implementación se muestra a continuación:
+
+\begin{lstlisting}[language=Java, frame=single]
+
+
+    void planeCollision(ArrayList<PlaneSection> planes)
+   {
+      for (int i = 0; i < planes.size(); i++)
+      {
+         float distancia = planes.get(i).getDistance(_s);
+
+         if(distancia < _radius && planes.get(i).checkLimits(_s))
+         {
+            planeCollisionHandler(planes.get(i), distancia);
+         }
+      }
+   }
+
+   void planeCollisionHandler(PlaneSection plane, float distancia)
+   {
+      float incS = _radius - distancia;
+      PVector normal = plane.getNormal();
+      _s.add(PVector.mult(normal, incS));
+
+      float vn = _v.dot(normal);
+      PVector velNormal = PVector.mult(normal, vn);
+      PVector velTangential = PVector.sub(_v, velNormal);
+
+      _v = PVector.sub(velTangential, PVector.mult(velNormal, Kr));
+   }
+
+\end{lstlisting}
+
+\subsection{Partícula-Partícula}\label{sec:particula-particula}
+
+Para detectar si una partícula colisiona con otra partícula, se debe de comprobar si la distancia entre las partículas es menor que la suma de los radios de las mismas. Para ello se calcula el vector que va desde el centro de la partícula hasta el centro de la otra partícula y se comprueba si su magnitud es menor que la suma de los dos radios. Una vez se conoce la distancia, se implementan diferentes modelos de colisión para calcular la nueva posición y velocidad de las partículas tras la colisión.
+
+\subsubsection{Modelo de Velocidades}\label{sec:modelo-velocidades}
+
+El modelo basado en velocidades se encarga de restituir la partícula en la dirección de la normal de la colisión y de actualizar las velocidades de salida de la partícula. Para ello, se descompone la velocidad de cada una en sus componentes tangencial y normal a la colisión y se calculan las nuevas velocidades de salida invirtendo la componente normal y aplicando un factor de restitución para simular la pérdida de energía. Además, se ajusta la velocidad de salida para que dependa de las masas de cada partícula siguiendo la fórmula de la colisión elastica.
+
+\begin{align*}
+    v_1' = \frac{(m_1 - m_2)u_1 + 2m_2u_2}{m_1 + m_2} \\
+    v_2' = \frac{(m_2 - m_1)u_2 + 2m_1u_1}{m_1 + m_2}
+\end{align*}
+
+Siguiendo lo descrito anteriormente, el código de la implementación se muestra a continuación:
+
+\begin{lstlisting}[language=Java, frame=single]
+
+    PVector VUnit = d.copy();
+    VUnit.normalize();
+
+    PVector n1 = PVector.mult(VUnit, _v.dot(d)/distanciaMag);
+    PVector n2 = PVector.mult(VUnit, otherParticle._v.dot(d)/distanciaMag);
+    PVector t1 = PVector.sub(_v, n1);
+    PVector t2 = PVector.sub(otherParticle._v, n2); 
+
+    float L = minDist - distanciaMag;
+    float vrel = PVector.sub(n1, n2).mag();
+    _s.add(PVector.mult(n1, -L/vrel));
+    otherParticle._s.add(PVector.mult(n2, -L/vrel));
+
+    float u1 = n1.dot(d)/distanciaMag;
+    float u2 = n2.dot(d)/distanciaMag;
+
+    float new_v1 = (( _m - otherParticle._m) * u1 + 2 * otherParticle._m * u2) 
+    / (_m + otherParticle._m); 
+    new_v1 *= Kr;
+
+    float new_v2 = (( otherParticle._m - _m) * u2 + 2 * _m * u1) 
+    / (_m + otherParticle._m);   
+    new_v2 *= Kr;
+
+    PVector n1_prime = PVector.mult(VUnit, new_v1);
+    _v = PVector.add(n1_prime.mult(Kr), t1);
+    
+    PVector n2_prime = PVector.mult(VUnit, new_v2);
+    otherParticle._v = PVector.add(n2_prime.mult(Kr), t2);
+    
+\end{lstlisting}
+
+\subsubsection{Modelo de Muelles}\label{sec:modelo-muelles}
+
+Este modelo no restituye las partículas, sino que se añaden fuerzas en la dirección opuesta a la colisión. Su cálculo se realiza utilizando un muelle, cocnretamente mediante su elongación, siendo la elongación de reposo la suma entre los dos radios.
+
+\begin{align*}
+    F_{muelle} = k_e \cdot (distanciaParticulas - distanciaReposo)
+\end{align*}
+
+El código de la implementación se muestra a continuación:
+
+\begin{lstlisting}[language=Java, frame=single]
+
+    float dx = otherParticle._s.x - _s.x;
+    float dy = otherParticle._s.y - _s.y;
+    float angle = atan2(dy, dx);
+    
+    float targetX = _s.x + cos(angle) * minDist;
+    float targetY = _s.y + sin(angle) * minDist;
+    
+    float Fmuellex = (targetX - otherParticle._s.x) * Ke; 
+    float Fmuelley = (targetY - otherParticle._s.y) * Ke;
+
+    _F.x -= Fmuellex;
+    _F.y -= Fmuelley;
+    otherParticle._F.x += Fmuellex;
+    otherParticle._F.y += Fmuelley;
+    
+\end{lstlisting}
+
+\subsection{Estructuras de Datos}\label{sec:estructuras-datos}
+
+Sin estructura de almacenamiento eficiente, el tiempo de cálculo de las interacciones entre partículas aumenta de forma exponencial con el número de partículas porque se deben comprobar cada una de las colisiones con el resto de particulas. Para evitar esto, se han implementado dos estructuras de datos que permiten reducir el tiempo de cálculo reduciendo las comprobaciones de colisión a solo las particulas vecinas.
+
+\subsubsection{Grid}\label{sec:grid}
+
+El \hyperref[sec:grid]{grid} divide el espacio en celdas de tamaño fijo y asigna cada partícula a una celda. Para comprobar las colisiones, se comprueban las partículas de la celda y las celdas vecinas. Para añadir una partícula en la estructura se averiguan los índices de la celda a la que pertenece y se añade a la lista de partículas de esa celda. Para comprobar las colisiones se obtienen las particulas vecinas accediendo a la celdas Norte, Sur, Este y Oeste de la celda a la que pertenece la partícula. Esto se implementa de la siguiente forma:
+
+\begin{lstlisting}[language=Java, frame=single]
+    void addParticle(Particle p)
+   {
+      int i = int(p.getPos().x/_cellSize);
+      int j = int(p.getPos().y/_cellSize);
+
+      if (i >= 0 && i < _nRows && j >= 0 && j < _nCols)
+      {
+         _cells[i][j]._vector.add(p);
+      }
+   }
+
+   ArrayList<Particle> getNeighbors(PVector s)
+   {
+      int i = int(s.x/_cellSize);
+      int j = int(s.y/_cellSize);
+      ArrayList<Particle> neighbors = new ArrayList<Particle>();
+      if (i > 0 && i < _nRows-1 && j > 0 && j < _nCols-1)
+      {
+         neighbors.addAll(_cells[i][j]._vector);
+         neighbors.addAll(_cells[i+1][j]._vector);
+         neighbors.addAll(_cells[i-1][j]._vector);
+         neighbors.addAll(_cells[i][j+1]._vector);
+         neighbors.addAll(_cells[i][j-1]._vector);
+      }
+
+      return neighbors;
+      
+   }
+\end{lstlisting}
+
+
+\subsubsection{Hash}\label{sec:hash}
+
+El modelo de \hyperref[sec:hash]{hash} parte del mismo punto que el \hyperref[sec:grid]{grid}, dividiendo el espacio en celdas. La diferencia es que no se almacena en una matriz, sino en una tabla \hyperref[sec:hash]{hash} de una única dimensión. De esta forma se consigue una gestión más eficiente del espacio de almacenamiento.
+
+Para añadir una particula en la estructura se averiguan los indices de la celda a la que pertenece utilizando la funcion de \hyperref[sec:hash]{hash}
+\begin{align*}
+    h(i,j) = 73856093*x + 19349663*y + 83492791*z \% M
+\end{align*}
+\noindent
+Donde M es el tamaño de la tabla \hyperref[sec:hash]{hash} y x, y, z son las coordenadas de la partícula	en la pantalla.
+
+Para poder obtener las partículas vecinas se crean partículas fantasma en las celdas vecinas y se obtienen los índices.
+
+Este proceso se implementa de la siguiente forma:
+\begin{lstlisting}[language=Java, frame=single]
+
+    int getIndex(Particle p)
+    {
+       long xd = int(floor(p.getPos().x / _cellSize));
+       long yd = int(floor(p.getPos().y / _cellSize));
+       long zd = int(floor(p.getPos().z / _cellSize));
+ 
+       long suma = 73856093*xd + 19349663*yd + 83492791*zd;
+       int index = int(suma % _numCells);
+ 
+       if(index < 0)
+       {
+          return 0;
+       }
+       else
+       {
+          return index;
+       }
+    }
+
+    ArrayList<Particle> getNeighbors(PVector s)
+   {
+      ArrayList<Particle> neighbors = new ArrayList<Particle>();
+
+      GhostParticle N = new GhostParticle(new PVector(s.x,s.y-_cellSize));
+      GhostParticle S = new GhostParticle(new PVector(s.x,s.y+_cellSize));
+      GhostParticle E = new GhostParticle(new PVector(s.x+_cellSize,s.y));
+      GhostParticle W = new GhostParticle(new PVector(s.x-_cellSize,s.y));
+      GhostParticle SELF = new GhostParticle(new PVector(s.x,s.y));
+
+      neighbors.addAll(_table.get(getIndex(SELF)));
+      neighbors.addAll(_table.get(getIndex(N)));
+      neighbors.addAll(_table.get(getIndex(S)));
+      neighbors.addAll(_table.get(getIndex(E)));
+      neighbors.addAll(_table.get(getIndex(W)));
+
+      return neighbors;    
+   }
+\end{lstlisting}
+
+\section{Parámetros}\label{sec:parametros}
+
+Definición de parámetros utilizados para calibrar una simulación realista y eficiente.
+
+\subsection{Generales}\label{sec:parametros-generales}
+Estos son los parámetros que tienen en común los dos sistemas:
+\begin{itemize}
+    \item \textbf{TS}: Paso de simulación inicial en segundos.
+    \item \textbf{M}: Masa de las partículas Kilogramos.
+    \item \textbf{R}: Radio de las partículas Metros.
+    \item \textbf{Kd}: Constante de rozamiento.
+    \item \textbf{G}: Gravedad Metros por segundo cuadrado.
+\end{itemize}
+\subsection{Específicos}
+Para cada uno de los dos ejercicios se han definido los siguientes parámetros:
+\subsubsection{Billar Francés}\label{sec:parametros-bf}
+\begin{itemize}
+    \item \textbf{Cr1}: Coeficiente de restitución para las colisiones con las paredes.
+    \item \textbf{Cr2}: Coeficiente de restitución para las colisiones entre bolas.
+\end{itemize}
+
+\subsubsection{Fluido Biscoso}\label{sec:parametros-fb}
+
+\begin{itemize}
+    \item \textbf{Kr}: Coeficiente de restitución para las colisiones entre partículas.
+    \item \textbf{Ke}: Constante del muelle.
+    \item \textbf{H}: Altura del recipiente.
+    \item \textbf{SC GRID}: Tamaño de las celdas.
+    \item \textbf{SC HASH}: Tamaño de las celdas.
+    \item \textbf{NC HASH}: Tamaño de la tabla hash.
+\end{itemize}
+
+\section{Ejercicio 1: Billar Francés}\label{sec:billar-frances}
+
+Esta primera tarea consiste en implementar una simulación de un billar francés en el que se simulan las colisiones entre las bolas y las paredes del recipiente. El modelo de colisiones sera el de \hyperref[sec:particula-particula]{velocidades}. Además, se permite interactuar con las bolas mediante el click Izquierdo del ratón, y añadir más bolas con el click Derecho.
+
+Para simular un rozamiento, se utiliza una constante de rozamiento \hyperref[sec:parametros]{Kd}. Para que las colisiones queden realistas, se utiliza un coeficiente de restitución \hyperref[sec:parametros]{Cr1} para las colisiones con las paredes y un coeficiente de restitución \hyperref[sec:parametros]{Cr2} para las colisiones entre bolas. Para conseguir una simulación realista, se han  ajustado el valor de los parametros de la siguiente manera:
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{TS}  & 0.03 \\ \hline
+        \textbf{M}   & 0.14 \\ \hline
+        \textbf{R}   & 17   \\ \hline
+        \textbf{Kd}  & 0.05 \\ \hline
+        \textbf{G}   & 0    \\ \hline
+        \textbf{Cr1} & 0.9  \\ \hline
+        \textbf{Cr2} & 0.9  \\ \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Resultados y Análisis}\label{sec:bf-resultados}
+
+En esta sección se presentan los resultados de la simulación y se analiza el comportamiento del sistema cuando se le somete a diferentes condiciones.
+
+\subsubsection{Estabilidad del sistema}\label{sec:bf-estabilidad}
+
+Para analizar la estabilidad del sistema se va a incrementar el numero de bolas de 10 en 10 y hacerlas rebotar entre ellas y con las paredes. Si las partículas no se restituyen como deben, se considerará que el sistema se desestabiliza.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    ylabel={Restitución Erronea (\%)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=*, color1] coordinates {(10,0)};
+
+                \addplot [mark=*, color1] coordinates {(20,0.22058823529411766)};
+
+                \addplot [mark=*, color1] coordinates {(30,0.47101449275362)};
+
+                \addplot [mark=*, color1] coordinates {(40,0.29595015576323985)};
+
+                \addplot [mark=*, color1] coordinates {(50,0.29595015576323985)};
+
+                \addplot [mark=*, color1] coordinates {(60,0.25023665473103674)};
+
+                \addplot [mark=*, color1] coordinates {(70,0.29595015576323985)};
+
+                \addplot [mark=*, color1] coordinates {(80,1.4031571430739348)};
+
+                \addplot [mark=*, color1] coordinates {(90,1.383456245663456)};
+
+                \addplot [mark=*,color1] coordinates {(100,1.347220014509673)};
+
+                \addplot [mark=none, color1] coordinates {(10,0) (20,0.22058823529411766) (30,0.47101449275362) (40,0.29595015576323985) (50,0.29595015576323985) (60,0.25023665473103674) (70,0.29595015576323985) (80,1.4031571430739348) (90,1.383456245663456) (100,1.347220014509673) };
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Porcentaje de restitución erronea en función del número de partículas}
+
+        \label{fig:restitution_error_billiard_A}
+    \end{subfigure}
+\end{figure}
+
+De lo anterior se deduce que el sistema se desestabiliza de manera más significativa a partir de 80 partículas. Al aumentar el número de colisiones también aumenta el error de restitución aunque el máximo sigue siendo del 1.4\%.
+
+Para observar esto de manera más clara, se ha realizado una simulación con una fuerza hacia una esquina para obligar a las particulas a colisionar entre ellas y con las paredes. Los resultados se muestran a continuación:
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    ylabel={Restitución Erronea (\%)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=*, color4] table [x=n, y=col2, col sep=comma]{data/unstability_EJ1/stability_force_processed.csv};
+                \addlegendentry{Variacion(\%/n)};
+                \addplot[domain=0:110, samples=5, color=color1]{15.257};
+                \addlegendentry{Media de(\%/n)};
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Porcentaje de restitución erronea en función del número de partículas con una fuerza hacia una esquina}
+
+        \label{fig:restitution_error_billiard_B}
+    \end{subfigure}
+\end{figure}
+
+Ahora, el 15,25\% de las colisiones tienen un error de restitución. Al obligar a las partículas a colisionar entre ellas de manera constante, aunque se restituyan correctamente, en el siguiente paso de integración vuelve a haber colisión y el error se acumula.
+
+\section{Ejercicio 2: Fluido Biscoso}\label{sec:fluido-biscoso}
+
+En esta segunda tarea se trata de simular un fluido viscoso en el que las partículas se ven afectadas por la gravedad. Para ello se utiliza el modelo basado en muelles para las colisiones entre partículas. En este sistema se pretende añadir un numero elevado de partículas. Para ello, se utilizan las estructuras de datos \hyperref[sec:grid]{grid}, \hyperref[sec:hash]{hash} y fuerza bruta. Además, con el click Izquierdo del ratón se puede añadir particulas y con la Q se puede eliminar el plano de abajo y hacer se salgan todas fuera del recipiente.
+
+Para conseguir una simulación realista, se han ajustado el valor de los \hyperref[sec:parametros]{parámetros} de la siguiente manera:
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{TS} & 0.03 \\ \hline
+        \textbf{M}  & 0.1  \\ \hline
+        \textbf{R}  & 5    \\ \hline
+        \textbf{Kd} & 0.2  \\ \hline
+        \textbf{Kr} & 0.2  \\ \hline
+        \textbf{Ke} & 40   \\ \hline
+        \textbf{G}  & 9.81 \\ \hline
+        \textbf{H}  & 450  \\ \hline
+    \end{tabular}
+\end{table}
+
+
+\subsection{Resultados y Análisis}\label{sec:fb-resultados}
+En esta sección se presentan los resultados de la simulación y se analiza el comportamiento del sistema cuando se le somete a diferentes condiciones.
+\subsubsection{Tiempos de cálculo de las colisiones}\label{sec:fb-tiempos-general}
+Para analizar el tiempo de cálculo de las colisiones se va a incrementar el número de partículas de 100 en 100 y se va a medir el tiempo de cálculo de las colisiones con las tres estructuras de datos. Se va a sacar el tiempo promedio en función del número de partículas.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    ylabel={Tiempo de simulación (ms)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/unstability_EJ2/costNONEProcessed.csv};
+                \addlegendentry{NONE};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/unstability_EJ2/costGRIDProcessed.csv};
+                \addlegendentry{GRID};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/unstability_EJ2/costHASHProcessed.csv};
+                \addlegendentry{HASH};
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Tiempo de cálculo de las colisiones en función del número de partículas para las dos estructuras y sin estructura}
+
+        \label{fig:time_vs_particles_A}
+    \end{subfigure}
+\end{figure}
+\subsubsection{Tiempos de cálculo de las colisiones en el grid}\label{sec:fb-tiempos-grid}
+
+Para analizar el tiempo de cálculo de las colisiones en el \hyperref[sec:grid]{grid} se va a incrementar el tamaño de las celdas. De esta forma se busca encontrar el tamaño de celda óptimo para el sistema.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    ylabel={Tiempo de simulación (ms)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_10.csv};
+                \addlegendentry{SC=10};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_20.csv};
+                \addlegendentry{SC=20};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_50.csv};
+                \addlegendentry{SC=50};
+                \addplot [mark=none, color3] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_100.csv};
+                \addlegendentry{SC=100};
+                \addplot [mark=none, color5] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_200.csv};
+                \addlegendentry{SC=200};
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Tiempo de cálculo de las colisiones variando el tamaño de las celda}
+        \label{fig:grid_A}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    legend style={at={(0.5,-0.34)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_10.csv};
+                \addlegendentry{SC=10};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_20.csv};
+                \addlegendentry{SC=20};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/EJ3_GRID/SC_50.csv};
+                \addlegendentry{SC=50};
+
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Otra prespectiva de la grafica anterior pero con las mejores opciones}
+        \label{fig:grid_B}
+    \end{subfigure}
+\end{figure}
+
+Como se observa, el tiempo de cálculo de las colisiones aumenta cuanto más grande es el tamaño de las celdas. A partir de 50, el tiempo de cálculo se dispara. Por tanto, el tamaño de celda óptimo es 10. El resultado es el esperado, porque si las celdas son muy grandes, se pierde la ventaja de subdividir el espacio para controlar que particulas comprueban colisiones entre ellas.
+
+\subsection{Tiempos de cálculo de las colisiones en el HASH}\label{sec:fb-tiempos-hash}
+
+Para analizar el tiempo de cálculo de las colisiones en el \hyperref[sec:hash]{hash} se va a incrementar el tamaño de la tabla \hyperref[sec:hash]{hash} a la vez que se cambia el tamaño de las celdas. De esta forma se busca encontrar el tamaño de celda y de tabla óptimo para el sistema. El procedimiento de incremento de partículas es el mismo que en el \hyperref[sec:grid]{grid}.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    ylabel={Tiempo de simulación (ms)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_10_NC_10.csv};
+                \addlegendentry{SC=10, NC=10};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_10_NC_100.csv};
+                \addlegendentry{SC=10, NC=100};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_10_NC_1000.csv};
+                \addlegendentry{SC=10, NC=1000};
+                \addplot [mark=none, color3] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_10_NC_10000.csv};
+                \addlegendentry{SC=10, NC=10000};
+
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Tiempo de cálculo de las colisiones en función del SC y NC}
+        \label{fig:hash_A}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_50_NC_10.csv};
+                \addlegendentry{SC=50, NC=10};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_50_NC_100.csv};
+                \addlegendentry{SC=50, NC=100};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_50_NC_1000.csv};
+                \addlegendentry{SC=50, NC=1000};
+                \addplot [mark=none, color3] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_50_NC_10000.csv};
+                \addlegendentry{SC=50, NC=10000};
+
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Tiempo de cálculo de las colisiones en función del SC y NC}
+        \label{fig:hash_B}
+    \end{subfigure}
+    \vfill
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    ylabel={Tiempo de simulación (ms)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_100_NC_10.csv};
+                \addlegendentry{SC=100, NC=10};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_100_NC_100.csv};
+                \addlegendentry{SC=100, NC=100};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_100_NC_1000.csv};
+                \addlegendentry{SC=100, NC=1000};
+                \addplot [mark=none, color3] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_100_NC_10000.csv};
+                \addlegendentry{SC=100, NC=10000};
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Tiempo de cálculo de las colisiones en función del SC y NC}
+        \label{fig:hash_C}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Particulas (n)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                ]
+
+                \addplot [mark=none, color4] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_500_NC_10.csv};
+                \addlegendentry{SC=500, NC=10};
+                \addplot [mark=none, color1] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_500_NC_100.csv};
+                \addlegendentry{SC=500, NC=100};
+                \addplot [mark=none, color2] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_500_NC_1000.csv};
+                \addlegendentry{SC=500, NC=1000};
+                \addplot [mark=none, color3] table [x=n, y=col2, col sep=comma]{data/EJ3_HASH/SC_500_NC_10000.csv};
+                \addlegendentry{SC=500, NC=10000};
+
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Tiempo de cálculo de las colisiones en función del SC y NC}
+        \label{fig:hash_D}
+    \end{subfigure}
+\end{figure}
+
+Para analizar mejor el resultado, vamos comparar los tiempos medios totales de cálculo de las colisiones de los mejores casos en cada gráfica.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{c|c}
+        \textbf{SC/NC} & \textbf{t (ms)} \\\toprule
+        10/1000        & 19.0475         \\
+        10/10000       & 17.4699         \\\midrule
+        50/100         & 28.1352         \\
+        50/1000        & 24.0232         \\
+        50/10000       & 23.7031         \\\midrule
+        100/100        & 39.1920         \\
+        100/1000       & 39.0576         \\
+        100/10000      & 36.5332         \\\midrule
+        500/100        & 175.255         \\
+        500/1000       & 176.3743        \\
+        500/10000      & 213.5961        \\
+    \end{tabular}
+    \caption{Media de los mejores tiempos.}
+    \label{tab:parametros_1}
+\end{table}
+
+Como se observa, la estructura \hyperref[sec:hash]{hash} se beneficia de tener un tamaño de tabla mayor. Según la teoría este tamaño debería ser del doble de número de partículas. Y tiene sentido, porque así, la cantidad de partículas en cada celda es menor. Por otro lado, el tamaño de celda también afecta al tiempo de cálculo por lo mismo, las partículas no están lo suficientemente distribuidas en la tabla. Si solo existen 4 celdas, todas las partículas irán a los mismos 4 índices independientemente del tamaño de la tabla.
+
+Si se repite la simulación para los parámetros SC=10 y NC=20000, se obtiene que el coste medio es de 11.1217 ms. Como se esperaba, el tiempo de cálculo disminuye al aumentar el tamaño de la tabla \hyperref[sec:hash]{hash} al número óptimo. Pero, ¿Qué pasa si seguimos aumentando el tamaño de la tabla?
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \begin{tikzpicture}
+            % Subfigure 1 TikZ code
+            \begin{axis}[
+                    xlabel={Tamaño de la table \hyperref[sec:hash]{hash} (x$10^3$)},
+                    ylabel={Tiempo de cálculo (ms)},
+                    legend style={at={(0.5,-0.2)}, anchor=north},
+                    grid=major,
+                    trim left=0,
+                    xticklabel style={
+                            /pgf/number format/fixed,
+                            /pgf/number format/precision=0,
+                            /pgf/number format/fixed zerofill,
+                            /pgf/number format/sci generic={mantissa sep=\times,exponent={10^{##1}}}
+                        },
+                ]
+
+                \addplot [mark=*, color1] coordinates {(5,17.4699)(10,14.2462)(15,11.7476)(20,11.1217)(50,11.2880)(100,11.8107)};
+
+
+            \end{axis}
+        \end{tikzpicture}
+        \caption{Porcentaje de restitución erronea en función del número de partículas}
+
+        \label{fig:hash_E}
+    \end{subfigure}
+\end{figure}
+
+El tiempo de cálculo disminuye al aumentar el tamaño de la tabla \hyperref[sec:hash]{hash} hasta su tamaño óptimo. A partir de este punto, el tiempo de cálculo aumenta de nuevo. Esto se debe a que el tamaño de la tabla \hyperref[sec:hash]{hash} es demasiado grande y ocupa demasiado espacio en memoria, lo que ralentiza el acceso a los datos. De todos modos, sigue siendo mejor tener un tamaño de tabla \hyperref[sec:hash]{hash} más grande que más pequeño.
+
+\newpage
+\section{Conclusiones}\label{sec:conclusion}
+
+A la hora de implementar un sistema de partículas, es importante tener en cuenta el número de partículas que se van a simular. Para sistemas con un número reducido de partículas, el tiempo de cálculo de las colisiones no es un problema. Sin embargo, a medida que se aumenta el número de partículas, el tiempo de cálculo de las colisiones aumenta de forma exponencial. Para evitar este problema se pueden introducir diferentes estructuras de datos que permiten reducir el tiempo de cálculo de las colisiones. En este trabajo se observan las diferencias entre las estructuras de datos \hyperref[sec:grid]{grid} y \hyperref[sec:hash]{hash}, y se concluye que la estructura \hyperref[sec:hash]{hash} es más eficiente para un número elevado de partículas. Además, se observa que el tamaño de la tabla \hyperref[sec:hash]{hash} y el tamaño de las celdas influyen en el tiempo de cálculo de las colisiones. Por último, se observa que el tiempo de cálculo de las colisiones disminuye al aumentar el tamaño de la tabla \hyperref[sec:hash]{hash} hasta su tamaño óptimo. Por lo tanto, es importante encontrar un equilibrio entre el tamaño de la tabla \hyperref[sec:hash]{hash} y el tamaño de las celdas para obtener un tiempo de cálculo óptimo.
+
+\end{document}
